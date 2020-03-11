@@ -16,7 +16,7 @@
     <PackageLicenseUrl>https://raw.githubusercontent.com/MindscapeHQ/NLog.Raygun/master/LICENSE</PackageLicenseUrl>
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>git://github.com/MindscapeHQ/NLog.Raygun</RepositoryUrl>
-    <PackageVersion>1.0.0</PackageVersion>
+    <PackageVersion>1.1.0</PackageVersion>
     <PackageIconUrl>https://app.raygun.com/Content/Images/nuget-icon.png</PackageIconUrl>
   </PropertyGroup>
   <ItemGroup>
