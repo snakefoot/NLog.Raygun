@@ -19,7 +19,7 @@ You need to configure NLog.config.
 * IgnoreServerVariableNames - Server variables you wish to ignore, eg sessions.
 * IgnoreHeaderNames - HTTP headers to ignore, eg API keys.
 * IsRawDataIgnored - RawData from web requests is ignored. Default is ```false```.
-* UserIdentityInfo - Explicitly defines lookup of user identity for Raygun events.
+* UserIdentityInfo - Explicitly defines lookup of user identity for Raygun events, ie. NLog layout renderer `${windows-identity}`.
 * UseExecutingAssemblyVersion - Attempt to get the executing assembly version, or root ASP.Net assembly version for Raygun events. Default is ```false```.
 * ApplicationVersion - Explicitly defines an application version for Raygun events. This will be ignored if UseExecutingAssemblyVersion is set to true and returns a value.
     
