@@ -9,13 +9,15 @@
     <Company>Raygun</Company>
     <Authors>Ken Burkhardt, Raygun</Authors>
     <Description>A custom NLog target that will push exceptions to Raygun</Description>
-    <Copyright>Copyright © Raygun 2015-2018</Copyright>
+    <Copyright>Copyright © Raygun 2020</Copyright>
 
     <PackageTags>NLog;Raygun;Log;Logging</PackageTags>
     <PackageProjectUrl>https://github.com/MindscapeHQ/NLog.Raygun</PackageProjectUrl>
     <PackageLicenseUrl>https://raw.githubusercontent.com/MindscapeHQ/NLog.Raygun/master/LICENSE</PackageLicenseUrl>
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>git://github.com/MindscapeHQ/NLog.Raygun</RepositoryUrl>
+    <PackageVersion>1.1.0</PackageVersion>
+    <PackageIconUrl>https://app.raygun.com/Content/Images/nuget-icon.png</PackageIconUrl>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="NLog" Version="4.5.11" />
