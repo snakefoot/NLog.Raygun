@@ -1,20 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
-using NLog.Config;
 
 namespace NLog.Raygun.TestApp
 {
   internal class Program
   {
+    private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+    
     private static void Main(string[] args)
     {
-      ConfigurationItemFactory.Default.Targets.RegisterDefinition("RayGun", typeof(RayGunTarget));
-      LogManager.ReconfigExistingLoggers();
-      var logger = LogManager.GetCurrentClassLogger();
-
       Console.WriteLine("Sending Message to RayGun...");
 
-      logger.Info("This is a test!");
+      Logger.Info("This is a test!");
 
       try
       {
@@ -25,7 +22,7 @@ namespace NLog.Raygun.TestApp
       }
       catch (Exception exception)
       {
-        logger.Error(exception);
+        Logger.Error(exception);
       }
 
       Console.WriteLine("Finished...");
