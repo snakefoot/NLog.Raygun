@@ -12,21 +12,12 @@ using NLog.Targets;
 namespace NLog.Raygun
 {
   [Target("RayGun")]
-  public class RayGunTarget : TargetWithLayout
+  public class RayGunTarget : TargetWithContext
   {
     [RequiredParameter]
     public string ApiKey
     {
-      get
-      {
-        SimpleLayout simpleLayout = _apiKey as SimpleLayout;
-        if (simpleLayout != null)
-          return simpleLayout.Text;
-        else if (_apiKey != null)
-          return _apiKey.ToString();
-        else
-          return null;
-      }
+      get { return (_apiKey as SimpleLayout)?.Text ?? _apiKey?.ToString(); }
       set { _apiKey = value; }
     }
     private Layout _apiKey;
@@ -90,21 +81,31 @@ namespace NLog.Raygun
     /// </summary>
     public string ApplicationVersion
     {
-      get
-      {
-        SimpleLayout simpleLayout = _applicationVersion as SimpleLayout;
-        if (simpleLayout != null)
-          return simpleLayout.Text;
-        else if (_applicationVersion != null)
-          return _applicationVersion.ToString();
-        else
-          return null;
-      }
+      get { return (_applicationVersion as SimpleLayout)?.Text ?? _applicationVersion?.ToString(); }
       set { _applicationVersion = value; }
     }
     private Layout _applicationVersion;
 
     private RaygunClient _raygunClient;
+
+    public RayGunTarget()
+    {
+      IncludeEventProperties = true;
+      OptimizeBufferReuse = true;
+      Layout = "${message}";
+      _applicationVersion = "${assembly-version:cached=true:type=File}";
+    }
+
+    protected override void InitializeTarget()
+    {
+      if (ContextProperties.Count == 0)
+      {
+        ContextProperties.Add(new TargetPropertyWithContext("RenderedLogMessage", Layout));
+        ContextProperties.Add(new TargetPropertyWithContext("LogMessageTemplate", "${message:raw=true}"));
+      }
+
+      base.InitializeTarget();
+    }
 
     protected override void CloseTarget()
     {
@@ -120,23 +121,25 @@ namespace NLog.Raygun
 
         Exception exception = ExtractException(logEvent.LogEvent);
         var tags = ExtractTags(logEvent.LogEvent, exception);
-        Dictionary<string, object> userCustomData = ExtractProperties(logEvent.LogEvent);
-        string layoutLogMessage = Layout.Render(logEvent.LogEvent);
-        userCustomData["RenderedLogMessage"] = layoutLogMessage;
-        userCustomData["LogMessageTemplate"] = logEvent.LogEvent.Message;
+        var contextProperties = GetAllProperties(logEvent.LogEvent);
+        contextProperties.Remove("Tags");
+        contextProperties.Remove("tags");
+        var userCustomData = new UserCustomDictionary(contextProperties);
 
         if (exception == null)
         {
+          string layoutLogMessage = RenderLogEvent(Layout, logEvent.LogEvent);
           exception = new RaygunException(layoutLogMessage);
         }
 
+        string userIdentityInfo = RenderLogEvent(UserIdentityInfo, logEvent.LogEvent);
 #if NET45
-        string userIdentityInfo = UserIdentityInfo != null ? UserIdentityInfo.Render(logEvent.LogEvent) : string.Empty;
         var userIdentity = string.IsNullOrEmpty(userIdentityInfo) ? null : new Mindscape.Raygun4Net.Messages.RaygunIdentifierMessage(userIdentityInfo);
         _raygunClient.SendInBackground(exception, tags, userCustomData, userIdentity);
         logEvent.Continuation(null);
 #else
-        _raygunClient.SendInBackground(exception, tags, userCustomData).ContinueWith((t,s) => SendCompleted(t.Exception, (AsyncContinuation)s), logEvent.Continuation);
+        var userIdentity = string.IsNullOrEmpty(userIdentityInfo) ? null : new RaygunIdentifierMessage(userIdentityInfo);
+        _raygunClient.SendInBackground(exception, tags, userCustomData, userIdentity).ContinueWith((t,s) => SendCompleted(t.Exception, (AsyncContinuation)s), logEvent.Continuation);
 #endif
       }
       catch (Exception ex)
@@ -168,30 +171,6 @@ namespace NLog.Raygun
       }
 
       return null;
-    }
-
-    private static Dictionary<string, object> ExtractProperties(LogEventInfo logEvent)
-    {
-      Dictionary<string, object> properties = new Dictionary<string, object>();
-      if (logEvent.HasProperties)
-      {
-        foreach (var property in logEvent.Properties)
-        {
-          string propertyKey = property.Key.ToString();
-          if (string.IsNullOrEmpty(propertyKey))
-            continue;
-
-          if (propertyKey == "Tags" || propertyKey == "tags")
-            continue;
-
-          object propertyValue = property.Value;
-          if (propertyValue == null || Convert.GetTypeCode(propertyValue) != TypeCode.Object)
-            properties[propertyKey] = propertyValue;
-          else
-            properties[propertyKey] = propertyValue.ToString();
-        }
-      }
-      return properties;
     }
 
     private List<string> ExtractTags(LogEventInfo logEvent, Exception exception)

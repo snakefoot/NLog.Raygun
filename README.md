@@ -14,6 +14,8 @@ You need to configure NLog.config.
 
 * ApiKey - Your API key.
 * Tags - Tags you want to send in with every exception.
+* IncludeEventProperties - Include properties from NLog LogEvent. Default is ```true```.
+* IncludeMdlc - Include properties from NLog Mapped Diagnostic Logical Context (MDLC). Default is ```false```.
 * IgnoreFormFieldNames - Form fields you wish to ignore, eg passwords and credit cards.
 * IgnoreCookieNames - Cookies you wish to ignore, eg user tokens.
 * IgnoreServerVariableNames - Server variables you wish to ignore, eg sessions.
@@ -43,6 +45,7 @@ Your `NLog.config` should look something like this:
 		type="RayGun" 
 		ApiKey="" 
 		Tags="" 
+		IncludeEventProperties="true" 
 		IgnoreFormFieldNames="" 
 		IgnoreCookieNames="" 
 		IgnoreServerVariableNames="" 
@@ -50,8 +53,12 @@ Your `NLog.config` should look something like this:
 		UserIdentityInfo="" 
 		UseExecutingAssemblyVersion="false" 
 		ApplicationVersion="" 
-		layout="${uppercase:${level}} ${message} ${exception:format=ToString,StackTrace}${newline}"
-      />
+		layout="${uppercase:${level}} ${message} ${exception:format=ToString,StackTrace}${newline}">
+		<contextproperty name="RenderedLogMessage" layout="${message}" />
+		<contextproperty name="LogMessageTemplate" layout="${message:raw=true}" />
+		<contextproperty name="Logger" layout="${logger}" />
+		<contextproperty name="ThreadId" layout="${threadid}" />
+    </target>
   </targets>
   <rules>
     <!-- Set up the logger. -->

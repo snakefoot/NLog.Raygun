@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFrameworks>net45;netstandard2.0;netstandard1.6</TargetFrameworks>
 
-    <Version>1.0.0</Version>
+    <Version>1.2.0</Version>
     <Title>NLog.Raygun</Title>
     <Product>NLog.Raygun</Product>
     <Company>Raygun</Company>
@@ -16,7 +16,6 @@
     <PackageLicenseUrl>https://raw.githubusercontent.com/MindscapeHQ/NLog.Raygun/master/LICENSE</PackageLicenseUrl>
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>git://github.com/MindscapeHQ/NLog.Raygun</RepositoryUrl>
-    <PackageVersion>1.1.0</PackageVersion>
     <PackageIconUrl>https://app.raygun.com/Content/Images/nuget-icon.png</PackageIconUrl>
   </PropertyGroup>
   <ItemGroup>
@@ -26,6 +25,6 @@
     <PackageReference Include="Mindscape.Raygun4Net" Version="5.7.0" />
   </ItemGroup>
   <ItemGroup Condition=" '$(TargetFramework)' != 'net45' ">
-    <PackageReference Include="Mindscape.Raygun4Net.AspNetCore" Version="6.1.0" />
+    <PackageReference Include="Mindscape.Raygun4Net.AspNetCore" Version="6.3.0" />
   </ItemGroup>
 </Project>
