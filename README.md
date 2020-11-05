@@ -16,11 +16,14 @@ You need to configure NLog.config.
 * Tags - Tags you want to send in with every exception.
 * IncludeEventProperties - Include properties from NLog LogEvent. Default is ```true```.
 * IncludeMdlc - Include properties from NLog Mapped Diagnostic Logical Context (MDLC). Default is ```false```.
+* IncludeBreadcrumbMessages - Convert informational LogEvents without Exceptions into Breadcrumbs (NOT available for NET Core). Default is ```false```.
+* IsRawDataIgnored - RawData from web requests is ignored. Default is ```false```.
 * IgnoreFormFieldNames - Form fields you wish to ignore, eg passwords and credit cards.
 * IgnoreCookieNames - Cookies you wish to ignore, eg user tokens.
 * IgnoreServerVariableNames - Server variables you wish to ignore, eg sessions.
-* IgnoreHeaderNames - HTTP headers to ignore, eg API keys.
-* IsRawDataIgnored - RawData from web requests is ignored. Default is ```false```.
+* IgnoreHeaderNames - HTTP request headers to ignore, eg API keys.
+* IgnoreQueryParameterNames - HTTP request query parameters to ignore.
+* IgnoreSensitiveFieldNames - Remove sensitive information from any of the above collections (Fields, Cookies, Headers, QueryParameters, RawData)
 * UserIdentityInfo - Explicitly defines lookup of user identity for Raygun events, ie. NLog layout renderer `${windows-identity}`.
 * UseExecutingAssemblyVersion - Attempt to get the executing assembly version, or root ASP.Net assembly version for Raygun events. Default is ```false```.
 * ApplicationVersion - Explicitly defines an application version for Raygun events. This will be ignored if UseExecutingAssemblyVersion is set to true and returns a value.
@@ -46,10 +49,12 @@ Your `NLog.config` should look something like this:
 		ApiKey="" 
 		Tags="" 
 		IncludeEventProperties="true" 
+		IncludeBreadcrumbMessages="false"
 		IgnoreFormFieldNames="" 
 		IgnoreCookieNames="" 
 		IgnoreServerVariableNames="" 
 		IgnoreHeaderNames="" 
+		IgnoreQueryParameterNames=""
 		UserIdentityInfo="" 
 		UseExecutingAssemblyVersion="false" 
 		ApplicationVersion="" 
