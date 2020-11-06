@@ -53,11 +53,32 @@ namespace NLog.Raygun
     public string IgnoreHeaderNames { get; set; }
 
     /// <summary>
+    /// Adds a list of keys to remove from the <see cref="RaygunRequestMessage.QueryString" /> property of the <see cref="RaygunRequestMessage" />
+    /// </summary>
+    public string IgnoreQueryParameterNames { get; set; }
+
+    /// <summary>
+    /// Adds a list of keys to remove from the following sections of the <see cref="RaygunRequestMessage" />
+    /// <see cref="RaygunRequestMessage.Headers" />
+    /// <see cref="RaygunRequestMessage.QueryString" />
+    /// <see cref="RaygunRequestMessage.Cookies" />
+    /// <see cref="RaygunRequestMessage.Data" />
+    /// <see cref="RaygunRequestMessage.Form" />
+    /// <see cref="RaygunRequestMessage.RawData" />
+    /// </summary>
+    public string IgnoreSensitiveFieldNames { get; set; }
+
+    /// <summary>
     /// Specifies whether or not RawData from web requests is ignored when sending reports to Raygun.io.
     /// The default is false which means RawData will be sent to Raygun.io.
     /// </summary>
     public bool IsRawDataIgnored { get { return _isRawDataIgnored ?? false; } set { _isRawDataIgnored = value; } }
     private bool? _isRawDataIgnored;
+
+    /// <summary>
+    /// Convert informational LogEvents without Exceptions into Breadcrumbs
+    /// </summary>
+    public bool IncludeBreadcrumbMessages { get; set; }
 
     /// <summary>
     /// Explicitly defines lookup of user-identity for Raygun events.
@@ -120,7 +141,6 @@ namespace NLog.Raygun
         _raygunClient = _raygunClient ?? (_raygunClient = CreateRaygunClient());
 
         Exception exception = ExtractException(logEvent.LogEvent);
-        var tags = ExtractTags(logEvent.LogEvent, exception);
         var contextProperties = GetAllProperties(logEvent.LogEvent);
         contextProperties.Remove("Tags");
         contextProperties.Remove("tags");
@@ -129,9 +149,19 @@ namespace NLog.Raygun
         if (exception == null)
         {
           string layoutLogMessage = RenderLogEvent(Layout, logEvent.LogEvent);
+
+#if NET45
+          if (IncludeBreadcrumbMessages && logEvent.LogEvent.Level < LogLevel.Error)
+          {
+            RecordBreadcrumb(logEvent.LogEvent, layoutLogMessage, userCustomData);
+            return;
+          }
+#endif
+
           exception = new RaygunException(layoutLogMessage);
         }
 
+        var tags = ExtractTags(logEvent.LogEvent, exception);
         string userIdentityInfo = RenderLogEvent(UserIdentityInfo, logEvent.LogEvent);
 #if NET45
         var userIdentity = string.IsNullOrEmpty(userIdentityInfo) ? null : new Mindscape.Raygun4Net.Messages.RaygunIdentifierMessage(userIdentityInfo);
@@ -148,6 +178,46 @@ namespace NLog.Raygun
         logEvent.Continuation(ex);
       }
     }
+
+#if NET45
+    private void RecordBreadcrumb(LogEventInfo logEvent, string layoutMessage, IDictionary<string, object> userCustomData)
+    {
+      var breadcrumbLevel = Mindscape.Raygun4Net.Breadcrumbs.RaygunBreadcrumbLevel.Debug;
+      if (logEvent.Level == LogLevel.Info)
+        breadcrumbLevel = Mindscape.Raygun4Net.Breadcrumbs.RaygunBreadcrumbLevel.Info;
+      else if (logEvent.Level == LogLevel.Warn)
+        breadcrumbLevel = Mindscape.Raygun4Net.Breadcrumbs.RaygunBreadcrumbLevel.Warning;
+      else if (logEvent.Level == LogLevel.Error || logEvent.Level == LogLevel.Fatal)
+        breadcrumbLevel = Mindscape.Raygun4Net.Breadcrumbs.RaygunBreadcrumbLevel.Error;
+
+      if (breadcrumbLevel >= RaygunSettings.Settings.BreadcrumbsLevel)
+      {
+        var crumb = new RaygunBreadcrumb();
+        crumb.Level = breadcrumbLevel;
+        crumb.Message = layoutMessage;
+        crumb.Category = logEvent.LoggerName;
+
+        if (userCustomData.Count > 0)
+        {
+          crumb.CustomData = userCustomData;
+        }
+
+        if (!string.IsNullOrEmpty(logEvent.CallerClassName))
+        {
+          crumb.ClassName = logEvent.CallerClassName;
+        }
+
+        if (!string.IsNullOrEmpty(logEvent.CallerMemberName))
+        {
+          crumb.MethodName = logEvent.CallerMemberName;
+          if (logEvent.CallerLineNumber > 0)
+            crumb.LineNumber = logEvent.CallerLineNumber;
+        }
+
+        RaygunClient.RecordBreadcrumb(crumb);
+      }
+    }
+#endif
 
     private static void SendCompleted(Exception taskException, AsyncContinuation continuation)
     {
@@ -249,6 +319,8 @@ namespace NLog.Raygun
         }
       }
 
+      if (IgnoreSensitiveFieldNames != null)
+        client.IgnoreSensitiveFieldNames(SplitValues(IgnoreSensitiveFieldNames));
       if (IgnoreFormFieldNames != null)
         client.IgnoreFormFieldNames(SplitValues(IgnoreFormFieldNames));
       if (IgnoreCookieNames != null)
@@ -257,8 +329,12 @@ namespace NLog.Raygun
         client.IgnoreHeaderNames(SplitValues(IgnoreHeaderNames));
       if (IgnoreServerVariableNames != null)
         client.IgnoreServerVariableNames(SplitValues(IgnoreServerVariableNames));
+      if (IgnoreQueryParameterNames != null)
+        client.IgnoreQueryParameterNames(SplitValues(IgnoreQueryParameterNames));
+
       if (_isRawDataIgnored.HasValue)
         client.IsRawDataIgnored = _isRawDataIgnored.Value;
+
       return client;
     }
 
