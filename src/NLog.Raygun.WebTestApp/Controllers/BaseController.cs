@@ -10,7 +10,7 @@ namespace NLog.Raygun.WebTestApp.Controllers
 
     static BaseController()
     {
-      ConfigurationItemFactory.Default.Targets.RegisterDefinition("RayGun", typeof(RayGunTarget));
+      ConfigurationItemFactory.Default.Targets.RegisterDefinition("Raygun", typeof(RaygunTarget));
       LogManager.ReconfigExistingLoggers();
     }
 
