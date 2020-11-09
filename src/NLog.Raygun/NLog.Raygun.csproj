@@ -17,6 +17,7 @@
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>git://github.com/MindscapeHQ/NLog.Raygun</RepositoryUrl>
     <PackageIconUrl>https://app.raygun.com/Content/Images/nuget-icon.png</PackageIconUrl>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="NLog" Version="4.5.11" />
