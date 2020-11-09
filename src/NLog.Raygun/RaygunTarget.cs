@@ -1,18 +1,21 @@
 ﻿using System;
 using System.Collections.Generic;
-using Mindscape.Raygun4Net;
-#if !NET45
-using Mindscape.Raygun4Net.AspNetCore;
-#endif
 using NLog.Common;
 using NLog.Config;
 using NLog.Layouts;
 using NLog.Targets;
+using Mindscape.Raygun4Net;
+#if NET45
+using Mindscape.Raygun4Net.Messages;
+using Mindscape.Raygun4Net.Breadcrumbs;
+#else
+using Mindscape.Raygun4Net.AspNetCore;
+#endif
 
 namespace NLog.Raygun
 {
-  [Target("RayGun")]
-  public class RayGunTarget : TargetWithContext
+  [Target("Raygun")]
+  public class RaygunTarget : TargetWithContext
   {
     [RequiredParameter]
     public string ApiKey
@@ -86,12 +89,6 @@ namespace NLog.Raygun
     public Layout UserIdentityInfo { get; set; }
 
     /// <summary>
-    /// Legacy parameter kept alive to avoid breaking change. NLog will not load configuration if trying to configure unknown properties
-    /// </summary>
-    [Obsolete("No longer supported. Instead consider using the UserIdentityInfo property")]
-    public bool UseIdentityNameAsUserId { get; set; }
-
-    /// <summary>
     /// Attempt to get the entry assembly version
     /// </summary>
     public bool UseExecutingAssemblyVersion { get; set; }
@@ -109,7 +106,7 @@ namespace NLog.Raygun
 
     private RaygunClient _raygunClient;
 
-    public RayGunTarget()
+    public RaygunTarget()
     {
       IncludeEventProperties = true;
       OptimizeBufferReuse = true;
@@ -134,26 +131,29 @@ namespace NLog.Raygun
       _raygunClient = null;
     }
 
-    protected override void Write(AsyncLogEventInfo logEvent)
+    protected override void Write(AsyncLogEventInfo eventInfo)
     {
       try
       {
         _raygunClient = _raygunClient ?? (_raygunClient = CreateRaygunClient());
 
-        Exception exception = ExtractException(logEvent.LogEvent);
-        var contextProperties = GetAllProperties(logEvent.LogEvent);
+        var exception = ExtractException(eventInfo.LogEvent);
+
+        var contextProperties = GetAllProperties(eventInfo.LogEvent);
+
         contextProperties.Remove("Tags");
         contextProperties.Remove("tags");
+
         var userCustomData = new UserCustomDictionary(contextProperties);
 
         if (exception == null)
         {
-          string layoutLogMessage = RenderLogEvent(Layout, logEvent.LogEvent);
+          var layoutLogMessage = RenderLogEvent(Layout, eventInfo.LogEvent);
 
 #if NET45
-          if (IncludeBreadcrumbMessages && logEvent.LogEvent.Level < LogLevel.Error)
+          if (IncludeBreadcrumbMessages && eventInfo.LogEvent.Level < LogLevel.Error)
           {
-            RecordBreadcrumb(logEvent.LogEvent, layoutLogMessage, userCustomData);
+            RecordBreadcrumb(eventInfo.LogEvent, layoutLogMessage, userCustomData);
             return;
           }
 #endif
@@ -161,134 +161,32 @@ namespace NLog.Raygun
           exception = new RaygunException(layoutLogMessage);
         }
 
-        var tags = ExtractTags(logEvent.LogEvent, exception);
-        string userIdentityInfo = RenderLogEvent(UserIdentityInfo, logEvent.LogEvent);
+        var tags = ExtractTags(eventInfo.LogEvent, exception);
+        var userIdentityInfo = RenderLogEvent(UserIdentityInfo, eventInfo.LogEvent);
+
 #if NET45
         var userIdentity = string.IsNullOrEmpty(userIdentityInfo) ? null : new Mindscape.Raygun4Net.Messages.RaygunIdentifierMessage(userIdentityInfo);
         _raygunClient.SendInBackground(exception, tags, userCustomData, userIdentity);
-        logEvent.Continuation(null);
+
+        eventInfo.Continuation(null);
 #else
         var userIdentity = string.IsNullOrEmpty(userIdentityInfo) ? null : new RaygunIdentifierMessage(userIdentityInfo);
-        _raygunClient.SendInBackground(exception, tags, userCustomData, userIdentity).ContinueWith((t,s) => SendCompleted(t.Exception, (AsyncContinuation)s), logEvent.Continuation);
+        _raygunClient.SendInBackground(exception, tags, userCustomData, userIdentity).ContinueWith((t,s) => SendCompleted(t.Exception, (AsyncContinuation)s), eventInfo.Continuation);
 #endif
+
       }
       catch (Exception ex)
       {
-        InternalLogger.Error(ex, "RayGun(Name={0}): Failed to send logevent.", Name);
-        logEvent.Continuation(ex);
+        InternalLogger.Error(ex, "Raygun(Name={0}): Failed to send logevent.", Name);
+        eventInfo.Continuation(ex);
       }
-    }
-
-#if NET45
-    private void RecordBreadcrumb(LogEventInfo logEvent, string layoutMessage, IDictionary<string, object> userCustomData)
-    {
-      var breadcrumbLevel = Mindscape.Raygun4Net.Breadcrumbs.RaygunBreadcrumbLevel.Debug;
-      if (logEvent.Level == LogLevel.Info)
-        breadcrumbLevel = Mindscape.Raygun4Net.Breadcrumbs.RaygunBreadcrumbLevel.Info;
-      else if (logEvent.Level == LogLevel.Warn)
-        breadcrumbLevel = Mindscape.Raygun4Net.Breadcrumbs.RaygunBreadcrumbLevel.Warning;
-      else if (logEvent.Level == LogLevel.Error || logEvent.Level == LogLevel.Fatal)
-        breadcrumbLevel = Mindscape.Raygun4Net.Breadcrumbs.RaygunBreadcrumbLevel.Error;
-
-      if (breadcrumbLevel >= RaygunSettings.Settings.BreadcrumbsLevel)
-      {
-        var crumb = new RaygunBreadcrumb();
-        crumb.Level = breadcrumbLevel;
-        crumb.Message = layoutMessage;
-        crumb.Category = logEvent.LoggerName;
-
-        if (userCustomData.Count > 0)
-        {
-          crumb.CustomData = userCustomData;
-        }
-
-        if (!string.IsNullOrEmpty(logEvent.CallerClassName))
-        {
-          crumb.ClassName = logEvent.CallerClassName;
-        }
-
-        if (!string.IsNullOrEmpty(logEvent.CallerMemberName))
-        {
-          crumb.MethodName = logEvent.CallerMemberName;
-          if (logEvent.CallerLineNumber > 0)
-            crumb.LineNumber = logEvent.CallerLineNumber;
-        }
-
-        RaygunClient.RecordBreadcrumb(crumb);
-      }
-    }
-#endif
-
-    private static void SendCompleted(Exception taskException, AsyncContinuation continuation)
-    {
-      if (taskException != null)
-      {
-        InternalLogger.Error(taskException, "RayGun: Failed sending logevent.");
-      }
-      continuation(taskException);
-    }
-
-    private static Exception ExtractException(LogEventInfo logEvent)
-    {
-      if (logEvent.Exception != null)
-      {
-        return logEvent.Exception;
-      }
-
-      if (logEvent.Parameters != null && logEvent.Parameters.Length > 0)
-      {
-        return logEvent.Parameters[0] as Exception;
-      }
-
-      return null;
-    }
-
-    private List<string> ExtractTags(LogEventInfo logEvent, Exception exception)
-    {
-      List<string> tags = new List<string>();
-
-      // Try and get tags off the exception data, if they exist
-      if (exception != null && exception.Data != null)
-      {
-        if (exception.Data.Contains("Tags"))
-        {
-          object tagsData = exception.Data["Tags"];
-          tags.AddRange(ParseTagsData(tagsData));
-        }
-        if (exception.Data.Contains("tags"))
-        {
-          object tagsData = exception.Data["tags"];
-          tags.AddRange(ParseTagsData(tagsData));
-        }
-      }
-
-      if (logEvent.Properties.Count > 0)
-      {
-        if (logEvent.Properties.ContainsKey("Tags"))
-        {
-          object tagsData = logEvent.Properties["Tags"];
-          tags.AddRange(ParseTagsData(tagsData));
-        }
-        if (logEvent.Properties.ContainsKey("tags"))
-        {
-          object tagsData = logEvent.Properties["tags"];
-          tags.AddRange(ParseTagsData(tagsData));
-        }
-      }
-
-      if (!string.IsNullOrWhiteSpace(Tags))
-      {
-        var tagsData = SplitValues(Tags);
-        tags.AddRange(tagsData);
-      }
-
-      return tags;
     }
 
     private RaygunClient CreateRaygunClient()
     {
       RaygunClient client = null;
-      string apiKey = _apiKey?.Render(LogEventInfo.CreateNullEvent()) ?? string.Empty;
+
+      var apiKey = _apiKey?.Render(LogEventInfo.CreateNullEvent()) ?? string.Empty;
       if (!string.IsNullOrEmpty(apiKey))
       {
         client = new RaygunClient(apiKey);
@@ -320,38 +218,167 @@ namespace NLog.Raygun
       }
 
       if (IgnoreSensitiveFieldNames != null)
+      {
         client.IgnoreSensitiveFieldNames(SplitValues(IgnoreSensitiveFieldNames));
+      }
+
       if (IgnoreFormFieldNames != null)
+      {
         client.IgnoreFormFieldNames(SplitValues(IgnoreFormFieldNames));
+      }
+
       if (IgnoreCookieNames != null)
+      {
         client.IgnoreCookieNames(SplitValues(IgnoreCookieNames));
+      }
+
       if (IgnoreHeaderNames != null)
+      {
         client.IgnoreHeaderNames(SplitValues(IgnoreHeaderNames));
+      }
+
       if (IgnoreServerVariableNames != null)
+      {
         client.IgnoreServerVariableNames(SplitValues(IgnoreServerVariableNames));
+      }
+
       if (IgnoreQueryParameterNames != null)
+      {
         client.IgnoreQueryParameterNames(SplitValues(IgnoreQueryParameterNames));
+      }
 
       if (_isRawDataIgnored.HasValue)
+      {
         client.IsRawDataIgnored = _isRawDataIgnored.Value;
+      }
 
       return client;
     }
 
+    private static Exception ExtractException(LogEventInfo logEvent)
+    {
+      if (logEvent.Exception != null)
+      {
+        return logEvent.Exception;
+      }
+
+      if (logEvent.Parameters != null && logEvent.Parameters.Length > 0)
+      {
+        return logEvent.Parameters[0] as Exception;
+      }
+
+      return null;
+    }
+
+#if NET45
+    private void RecordBreadcrumb(LogEventInfo logEvent, string layoutMessage, IDictionary<string, object> userCustomData)
+    {
+      var breadcrumbLevel = RaygunBreadcrumbLevel.Debug;
+
+      if (logEvent.Level == LogLevel.Info)
+      {
+        breadcrumbLevel = RaygunBreadcrumbLevel.Info;
+      }
+      else if (logEvent.Level == LogLevel.Warn)
+      {
+        breadcrumbLevel = RaygunBreadcrumbLevel.Warning;
+      }
+      else if (logEvent.Level == LogLevel.Error || logEvent.Level == LogLevel.Fatal)
+      {
+        breadcrumbLevel = RaygunBreadcrumbLevel.Error;
+      }
+
+      if (breadcrumbLevel < RaygunSettings.Settings.BreadcrumbsLevel)
+      {
+        return;
+      }
+
+      var crumb = new RaygunBreadcrumb
+      {
+        Level = breadcrumbLevel,
+        Message = layoutMessage,
+        Category = logEvent.LoggerName
+      };
+
+      if (userCustomData.Count > 0)
+      {
+        crumb.CustomData = userCustomData;
+      }
+
+      if (!string.IsNullOrEmpty(logEvent.CallerClassName))
+      {
+        crumb.ClassName = logEvent.CallerClassName;
+      }
+
+      if (!string.IsNullOrEmpty(logEvent.CallerMemberName))
+      {
+        crumb.MethodName = logEvent.CallerMemberName;
+
+        if (logEvent.CallerLineNumber > 0)
+        {
+          crumb.LineNumber = logEvent.CallerLineNumber;
+        }
+      }
+
+      RaygunClient.RecordBreadcrumb(crumb);
+    }
+#endif
+
+    private List<string> ExtractTags(LogEventInfo logEvent, Exception exception)
+    {
+      var tags = new List<string>();
+
+      // Try and get tags off the exception data, if they exist
+      if (exception?.Data != null)
+      {
+        if (exception.Data.Contains("Tags"))
+        {
+          var tagsData = exception.Data["Tags"];
+          tags.AddRange(ParseTagsData(tagsData));
+        }
+
+        if (exception.Data.Contains("tags"))
+        {
+          var tagsData = exception.Data["tags"];
+          tags.AddRange(ParseTagsData(tagsData));
+        }
+      }
+
+      // Try and get tags off the properties data, if they exist
+      if (logEvent.Properties.Count > 0)
+      {
+        if (logEvent.Properties.ContainsKey("Tags"))
+        {
+          var tagsData = logEvent.Properties["Tags"];
+          tags.AddRange(ParseTagsData(tagsData));
+        }
+
+        if (logEvent.Properties.ContainsKey("tags"))
+        {
+          var tagsData = logEvent.Properties["tags"];
+          tags.AddRange(ParseTagsData(tagsData));
+        }
+      }
+
+      if (!string.IsNullOrWhiteSpace(Tags))
+      {
+        var tagsData = SplitValues(Tags);
+        tags.AddRange(tagsData);
+      }
+
+      return tags;
+    }
+
     private static IEnumerable<string> ParseTagsData(object tagsData)
     {
-      IEnumerable<string> tagsCollection = tagsData as IEnumerable<string>;
-      if (tagsCollection != null)
+      switch (tagsData)
       {
-        return tagsCollection;
-      }
-      else if (tagsData is string)
-      {
-        return SplitValues((string)tagsData);
-      }
-      else
-      {
-        return System.Linq.Enumerable.Empty<string>();
+        case IEnumerable<string> tagsCollection:
+          return tagsCollection;
+        case string data:
+          return SplitValues(data);
+        default:
+          return System.Linq.Enumerable.Empty<string>();
       }
     }
 
@@ -376,6 +403,16 @@ namespace NLog.Raygun
       {
         return null;
       }
+    }
+
+    private static void SendCompleted(Exception taskException, AsyncContinuation continuation)
+    {
+      if (taskException != null)
+      {
+        InternalLogger.Error(taskException, "Raygun: Failed sending logevent.");
+      }
+
+      continuation(taskException);
     }
   }
 }

@@ -4,7 +4,7 @@ NLog.Raygun
 A custom [NLog] target that will push exceptions to [Raygun].
 
 [NLog]: http://nlog-project.org/
-[Raygun]: http://raygun.io/
+[Raygun]: https://raygun.com/
 
 ## Configuration
 
@@ -44,8 +44,8 @@ Your `NLog.config` should look something like this:
   <targets>
     <!-- Set up the target (Avoid using async=true or AsyncWrapper) -->
 	<target 
-		name="RayGunTarget" 
-		type="RayGun" 
+		name="RaygunTarget" 
+		type="Raygun" 
 		ApiKey="" 
 		Tags="" 
 		IncludeEventProperties="true" 
@@ -67,7 +67,7 @@ Your `NLog.config` should look something like this:
   </targets>
   <rules>
     <!-- Set up the logger. -->
-    <logger name="*" minlevel="Error" writeTo="RayGunTarget" />
+    <logger name="*" minlevel="Error" writeTo="RaygunTarget" />
   </rules>
 </nlog>
 ```
