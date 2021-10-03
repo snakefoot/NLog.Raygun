@@ -345,17 +345,15 @@ namespace NLog.Raygun
       }
 
       // Try and get tags off the properties data, if they exist
-      if (logEvent.Properties.Count > 0)
+      if (logEvent.HasProperties)
       {
-        if (logEvent.Properties.ContainsKey("Tags"))
+        if (logEvent.Properties.TryGetValue("Tags", out var tagsData))
         {
-          var tagsData = logEvent.Properties["Tags"];
           tags.AddRange(ParseTagsData(tagsData));
         }
 
-        if (logEvent.Properties.ContainsKey("tags"))
+        if (logEvent.Properties.TryGetValue("tags", out tagsData))
         {
-          var tagsData = logEvent.Properties["tags"];
           tags.AddRange(ParseTagsData(tagsData));
         }
       }
