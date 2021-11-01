@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>net45;netstandard2.0;netstandard1.6</TargetFrameworks>
+    <TargetFrameworks>net45;netstandard2.0;netstandard1.6;net5.0</TargetFrameworks>
 
     <Version>2.0.0</Version>
     <Title>NLog.Raygun</Title>
@@ -13,7 +13,7 @@
 
     <PackageTags>NLog;Raygun;Log;Logging</PackageTags>
     <PackageProjectUrl>https://github.com/MindscapeHQ/NLog.Raygun</PackageProjectUrl>
-    <PackageLicenseUrl>https://raw.githubusercontent.com/MindscapeHQ/NLog.Raygun/master/LICENSE</PackageLicenseUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>git://github.com/MindscapeHQ/NLog.Raygun</RepositoryUrl>
     <PackageIconUrl>https://app.raygun.com/Content/Images/nuget-icon.png</PackageIconUrl>
@@ -23,9 +23,9 @@
     <PackageReference Include="NLog" Version="4.5.11" />
   </ItemGroup>
   <ItemGroup Condition=" '$(TargetFramework)' == 'net45' ">
-    <PackageReference Include="Mindscape.Raygun4Net" Version="5.7.0" />
+    <PackageReference Include="Mindscape.Raygun4Net" Version="5.13.0" />
   </ItemGroup>
   <ItemGroup Condition=" '$(TargetFramework)' != 'net45' ">
-    <PackageReference Include="Mindscape.Raygun4Net.AspNetCore" Version="6.3.0" />
+    <PackageReference Include="Mindscape.Raygun4Net.AspNetCore" Version="6.6.2" />
   </ItemGroup>
 </Project>
