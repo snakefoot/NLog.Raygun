@@ -1,10 +1,5 @@
-NLog.Raygun
-===========
-
-A custom [NLog] target that will push exceptions to [Raygun].
-
-[NLog]: http://nlog-project.org/
-[Raygun]: https://raygun.com/
+# NLog.Raygun [![NuGet](https://img.shields.io/nuget/v/NLog.Raygun.svg)](https://www.nuget.org/packages/NLog.Raygun)
+[NLog](http://nlog-project.org/) extension for pushing application exceptions to [Raygun](https://raygun.com/)
 
 ## Configuration
 
@@ -58,6 +53,7 @@ Your `NLog.config` should look something like this:
 | ApiKey | Your Raygun application API key |
 | Tags | Tags you want to send in with every exception
 | IncludeEventProperties | Include properties from NLog LogEvent. Default is ```true```
+| IncludeScopeProperties | Include properties from NLog ScopeContext. Default is ```false```
 | IncludeMdlc | Include properties from NLog Mapped Diagnostic Logical Context (MDLC). Default is ```false```
 | IncludeBreadcrumbMessages | Convert informational LogEvents without Exceptions into Breadcrumbs (NOT available for NET Core). Default is ```false```
 | IsRawDataIgnored | RawData from web requests is ignored. Default is ```false```
