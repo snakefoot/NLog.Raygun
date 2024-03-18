@@ -55,7 +55,7 @@ Your `NLog.config` should look something like this:
 | IncludeEventProperties | Include properties from NLog LogEvent. Default is ```true```
 | IncludeScopeProperties | Include properties from NLog ScopeContext. Default is ```false```
 | IncludeMdlc | Include properties from NLog Mapped Diagnostic Logical Context (MDLC). Default is ```false```
-| IncludeBreadcrumbMessages | Convert informational LogEvents without Exceptions into Breadcrumbs (NOT available for NET Core). Default is ```false```
+| IncludeBreadcrumbMessages | Convert informational LogEvents without Exceptions into Breadcrumbs. Default is ```false```
 | IsRawDataIgnored | RawData from web requests is ignored. Default is ```false```
 | IgnoreFormFieldNames | Form fields you wish to ignore, eg passwords and credit cards
 | IgnoreCookieNames | Cookies you wish to ignore, eg user tokens

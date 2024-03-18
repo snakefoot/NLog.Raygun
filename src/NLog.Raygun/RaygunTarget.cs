@@ -5,9 +5,8 @@ using NLog.Config;
 using NLog.Layouts;
 using NLog.Targets;
 using Mindscape.Raygun4Net;
-#if NET45
+#if NETFRAMEWORK
 using Mindscape.Raygun4Net.Messages;
-using Mindscape.Raygun4Net.Breadcrumbs;
 #else
 using Mindscape.Raygun4Net.AspNetCore;
 #endif
@@ -150,13 +149,11 @@ namespace NLog.Raygun
         {
           var layoutLogMessage = RenderLogEvent(Layout, eventInfo.LogEvent);
 
-#if NET45
           if (IncludeBreadcrumbMessages && eventInfo.LogEvent.Level < LogLevel.Error)
           {
             RecordBreadcrumb(eventInfo.LogEvent, layoutLogMessage, userCustomData);
             return;
           }
-#endif
 
           exception = new RaygunException(layoutLogMessage);
         }
@@ -164,16 +161,15 @@ namespace NLog.Raygun
         var tags = ExtractTags(eventInfo.LogEvent, exception);
         var userIdentityInfo = RenderLogEvent(UserIdentityInfo, eventInfo.LogEvent);
 
-#if NET45
+#if NETFRAMEWORK
         var userIdentity = string.IsNullOrEmpty(userIdentityInfo) ? null : new Mindscape.Raygun4Net.Messages.RaygunIdentifierMessage(userIdentityInfo);
         _raygunClient.SendInBackground(exception, tags, userCustomData, userIdentity);
 
         eventInfo.Continuation(null);
 #else
         var userIdentity = string.IsNullOrEmpty(userIdentityInfo) ? null : new RaygunIdentifierMessage(userIdentityInfo);
-        _raygunClient.SendInBackground(exception, tags, userCustomData, userIdentity).ContinueWith((t,s) => SendCompleted(t.Exception, (AsyncContinuation)s), eventInfo.Continuation);
+        _raygunClient.SendInBackground(exception, tags, userCustomData, userIdentity).ContinueWith((t, s) => SendCompleted(t.Exception, (AsyncContinuation)s), eventInfo.Continuation);
 #endif
-
       }
       catch (Exception ex)
       {
@@ -187,25 +183,16 @@ namespace NLog.Raygun
       RaygunClient client = null;
 
       var apiKey = _apiKey?.Render(LogEventInfo.CreateNullEvent()) ?? string.Empty;
-      if (!string.IsNullOrEmpty(apiKey))
-      {
-        client = new RaygunClient(apiKey);
-      }
-      else
-      {
-#if NET45
-        client = new RaygunClient();
-#else
-        throw new ArgumentException("NLog RaygunTarget requires valid ApiKey property", nameof(ApiKey));
-#endif
-      }
+#if NETFRAMEWORK
+      client = string.IsNullOrEmpty(apiKey) ? new RaygunClient() : new RaygunClient(apiKey);
 
       if (UseExecutingAssemblyVersion)
       {
         client.ApplicationVersion = GetExecutingAssemblyVersion();
       }
 
-      if (string.IsNullOrEmpty(client.ApplicationVersion))
+      var applicationVersion = client.ApplicationVersion;
+      if (string.IsNullOrEmpty(applicationVersion))
       {
         if (_applicationVersion != null)
         {
@@ -251,7 +238,67 @@ namespace NLog.Raygun
       {
         client.IsRawDataIgnored = _isRawDataIgnored.Value;
       }
+#else
+      var settings = new RaygunSettings();
+      if (!string.IsNullOrEmpty(apiKey))
+      {
+        settings.ApiKey = apiKey;
+      }
+      if (UseExecutingAssemblyVersion)
+      {
+        settings.ApplicationVersion = GetExecutingAssemblyVersion();
+      }
 
+      var applicationVersion = settings.ApplicationVersion;
+      if (string.IsNullOrEmpty(applicationVersion))
+      {
+        if (_applicationVersion != null)
+        {
+          settings.ApplicationVersion = _applicationVersion.Render(LogEventInfo.CreateNullEvent());
+        }
+        else
+        {
+          settings.ApplicationVersion = GetExecutingAssemblyVersion();
+        }
+      }
+
+      if (IgnoreSensitiveFieldNames != null)
+      {
+        settings.IgnoreSensitiveFieldNames.AddRange(SplitValues(IgnoreSensitiveFieldNames));
+      }
+
+      if (IgnoreFormFieldNames != null)
+      {
+        settings.IgnoreFormFieldNames.AddRange(SplitValues(IgnoreFormFieldNames));
+      }
+
+      if (IgnoreCookieNames != null)
+      {
+        settings.IgnoreCookieNames.AddRange(SplitValues(IgnoreCookieNames));
+      }
+
+      if (IgnoreHeaderNames != null)
+      {
+        settings.IgnoreHeaderNames.AddRange(SplitValues(IgnoreHeaderNames));
+      }
+
+      if (IgnoreServerVariableNames != null)
+      {
+        settings.IgnoreServerVariableNames.AddRange(SplitValues(IgnoreServerVariableNames));
+      }
+
+      if (IgnoreQueryParameterNames != null)
+      {
+        settings.IgnoreQueryParameterNames.AddRange(SplitValues(IgnoreQueryParameterNames));
+      }
+
+      if (_isRawDataIgnored.HasValue)
+      {
+        settings.IsRawDataIgnored = _isRawDataIgnored.Value;
+      }
+     
+      client = new RaygunClient(settings, null, null);
+#endif
       return client;
     }
 
@@ -270,35 +317,33 @@ namespace NLog.Raygun
       return null;
     }
 
-#if NET45
     private void RecordBreadcrumb(LogEventInfo logEvent, string layoutMessage, IDictionary<string, object> userCustomData)
     {
-      var breadcrumbLevel = RaygunBreadcrumbLevel.Debug;
+      var crumb = new RaygunBreadcrumb
+      {
+        Message = layoutMessage,
+        Category = logEvent.LoggerName,
+      };
 
-      if (logEvent.Level == LogLevel.Info)
+#if NETFRAMEWORK
+      if (logEvent.Level == LogLevel.Warn)
       {
-        breadcrumbLevel = RaygunBreadcrumbLevel.Info;
-      }
-      else if (logEvent.Level == LogLevel.Warn)
-      {
-        breadcrumbLevel = RaygunBreadcrumbLevel.Warning;
+        crumb.Level = Mindscape.Raygun4Net.Breadcrumbs.RaygunBreadcrumbLevel.Warning;
       }
       else if (logEvent.Level == LogLevel.Error || logEvent.Level == LogLevel.Fatal)
       {
-        breadcrumbLevel = RaygunBreadcrumbLevel.Error;
+        crumb.Level = Mindscape.Raygun4Net.Breadcrumbs.RaygunBreadcrumbLevel.Error;
       }
-
-      if (breadcrumbLevel < RaygunSettings.Settings.BreadcrumbsLevel)
+#else
+      if (logEvent.Level == LogLevel.Warn)
       {
-        return;
+        crumb.Type = "Warning";
       }
-
-      var crumb = new RaygunBreadcrumb
+      else if (logEvent.Level == LogLevel.Error || logEvent.Level == LogLevel.Fatal)
       {
-        Level = breadcrumbLevel,
-        Message = layoutMessage,
-        Category = logEvent.LoggerName
-      };
+        crumb.Type = "Error";
+      }
+#endif
 
       if (userCustomData.Count > 0)
       {
@@ -320,9 +365,12 @@ namespace NLog.Raygun
         }
       }
 
+#if NETFRAMEWORK
       RaygunClient.RecordBreadcrumb(crumb);
-    }
+#else
+      Mindscape.Raygun4Net.Breadcrumbs.RaygunBreadcrumbs.Record(crumb);
 #endif
+    }
 
     private List<string> ExtractTags(LogEventInfo logEvent, Exception exception)
     {
