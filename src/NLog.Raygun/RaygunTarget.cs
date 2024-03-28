@@ -297,7 +297,7 @@ namespace NLog.Raygun
         settings.IsRawDataIgnored = _isRawDataIgnored.Value;
       }
      
-      client = new RaygunClient(settings, null, null);
+      client = new RaygunClient(settings);
 #endif
       return client;
     }
