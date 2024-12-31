@@ -3,8 +3,8 @@
   <PropertyGroup>
     <TargetFrameworks>net462;netstandard2.0;net6.0</TargetFrameworks>
 
-    <Version>10.1.0</Version>
-    <PackageVersion>10.1.0</PackageVersion>
+    <Version>11.2.1</Version>
+    <PackageVersion>11.2.1</PackageVersion>
     <Title>NLog.Raygun</Title>
     <Product>NLog.Raygun</Product>
     <Company>Raygun</Company>
@@ -24,9 +24,9 @@
     <PackageReference Include="NLog" Version="4.7.15" />
   </ItemGroup>
   <ItemGroup Condition=" '$(TargetFramework)' == 'net462' ">
-    <PackageReference Include="Mindscape.Raygun4Net" Version="11.1.0" />
+    <PackageReference Include="Mindscape.Raygun4Net" Version="11.2.1" />
   </ItemGroup>
   <ItemGroup Condition=" '$(TargetFramework)' != 'net462' ">
-    <PackageReference Include="Mindscape.Raygun4Net.AspNetCore" Version="11.1.0" />
+    <PackageReference Include="Mindscape.Raygun4Net.AspNetCore" Version="11.2.1" />
   </ItemGroup>
 </Project>
